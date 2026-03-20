@@ -1,4 +1,11 @@
 import { useState, useEffect } from "react";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+// ── Supabase ───────────────────────────────────────────────────────────────
+const supabase = createClient(
+  "https://isnklbjwgpdiunlqagka.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlzbmtsYmp3Z3BkaXVubHFhZ2thIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwNDU4OTMsImV4cCI6MjA4OTYyMTg5M30.wSI0o1cInEbKfGplUey4b-FG9YP7m_g3-wlUz6GhZvE"
+);
 
 // ── constants ──────────────────────────────────────────────────────────────
 const PHASES = {
@@ -12,7 +19,6 @@ const MOODS    = ["😊 Happy","😔 Sad","😤 Irritable","😰 Anxious","😴 
 const FLOW     = ["None","Spotting","Light","Medium","Heavy"];
 const MONTHS   = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const WDAYS    = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-
 const EXERCISES = {
   menstrual:  ["🧘 Gentle yoga","🚶 Light walking","😴 Rest & recover","🌊 Swimming (light)"],
   follicular: ["🏃 Running","🚴 Cycling","🏋️ Strength training","💃 Dance classes"],
@@ -24,12 +30,6 @@ const FOODS = {
   follicular: ["🥚 Eggs & protein","🥦 Cruciferous veggies","🫐 Berries","🌰 Nuts & seeds"],
   ovulation:  ["🥗 Raw veggies","🍓 Antioxidant fruits","💧 Lots of water","🥑 Healthy fats"],
   luteal:     ["🍌 Magnesium bananas","🌾 Complex carbs","🫖 Chamomile tea","🎃 Pumpkin seeds"],
-};
-const PARTNER_GUIDE = {
-  menstrual:  { emoji:"💊", do:"Bring comfort food, heating pad & cuddles.", dont:"Avoid stressful topics or criticism." },
-  follicular: { emoji:"🎉", do:"Plan dates and adventures — she's energetic!", dont:"Don't cancel plans, she's excited." },
-  ovulation:  { emoji:"🥰", do:"Perfect time for romance & deep conversations.", dont:"Don't be distant — she needs connection." },
-  luteal:     { emoji:"🤗", do:"Be patient, validate her feelings, offer extra help.", dont:"Don't dismiss her emotions as 'just PMS'." },
 };
 
 function getPhase(day) {
@@ -43,7 +43,6 @@ function fmt(d) { return d.toLocaleDateString("en-US",{month:"short",day:"numeri
 function fmtShort(d) { return d.toLocaleDateString("en-US",{month:"short",day:"numeric"}); }
 function dateStr(d) { return d.toISOString().split("T")[0]; }
 
-// ── pill button ────────────────────────────────────────────────────────────
 function Pill({ active, color, onClick, children }) {
   return (
     <button onClick={onClick} style={{
@@ -56,7 +55,6 @@ function Pill({ active, color, onClick, children }) {
   );
 }
 
-// ── card ───────────────────────────────────────────────────────────────────
 function Card({ children, style={} }) {
   return (
     <div style={{ background:"white", borderRadius:20, padding:18,
@@ -71,58 +69,276 @@ function SectionTitle({ children, color="#9b59b6" }) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════
+// AUTH SCREEN
+// ══════════════════════════════════════════════════════════════════════════
+function AuthScreen({ onAuth }) {
+  const [mode, setMode] = useState("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const inp = {
+    width:"100%", padding:"12px 16px", borderRadius:14,
+    border:"1.5px solid #e8c4d8", fontFamily:"inherit", fontSize:14,
+    color:"#4a2040", boxSizing:"border-box", outline:"none",
+    background:"white", marginBottom:12,
+  };
+
+  async function handleSubmit() {
+    setLoading(true); setError(""); setSuccess("");
+    try {
+      if (mode === "login") {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        onAuth(data.user);
+      } else {
+        const { data, error } = await supabase.auth.signUp({
+          email, password,
+          options: { data: { full_name: name } }
+        });
+        if (error) throw error;
+        setSuccess("Account created! Please check your email to verify, then log in.");
+        setMode("login");
+      }
+    } catch (e) {
+      setError(e.message);
+    }
+    setLoading(false);
+  }
+
+  return (
+    <div style={{
+      minHeight:"100vh",
+      background:"linear-gradient(150deg,#fff0f7 0%,#fde8f5 50%,#f0e0ff 100%)",
+      display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+      padding:24, fontFamily:"'Palatino Linotype',serif",
+    }}>
+      {/* Logo */}
+      <div style={{ textAlign:"center", marginBottom:32 }}>
+        <div style={{ fontSize:56, marginBottom:8 }}>🌙</div>
+        <div style={{ fontSize:32, fontWeight:800,
+          background:"linear-gradient(135deg,#e05c7a,#9b59b6)",
+          WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>
+          Luna
+        </div>
+        <div style={{ fontSize:13, color:"#b07090", letterSpacing:2, textTransform:"uppercase" }}>
+          Cycle Tracker
+        </div>
+      </div>
+
+      {/* Card */}
+      <div style={{ width:"100%", maxWidth:380, background:"white", borderRadius:24,
+        padding:28, boxShadow:"0 8px 40px rgba(200,120,180,0.2)" }}>
+
+        {/* Tabs */}
+        <div style={{ display:"flex", marginBottom:24, background:"#fde8f5", borderRadius:14, padding:4 }}>
+          {["login","signup"].map(m=>(
+            <button key={m} onClick={()=>setMode(m)} style={{
+              flex:1, padding:"10px", borderRadius:11, border:"none",
+              background: mode===m ? "white" : "transparent",
+              color: mode===m ? "#e05c7a" : "#b07090",
+              fontFamily:"inherit", fontSize:13, fontWeight:700, cursor:"pointer",
+              boxShadow: mode===m ? "0 2px 8px rgba(200,120,180,0.2)" : "none",
+            }}>{m==="login"?"Sign In":"Create Account"}</button>
+          ))}
+        </div>
+
+        {mode==="signup" && (
+          <input value={name} onChange={e=>setName(e.target.value)}
+            placeholder="Your name" style={inp}/>
+        )}
+        <input type="email" value={email} onChange={e=>setEmail(e.target.value)}
+          placeholder="Email address" style={inp}/>
+        <input type="password" value={password} onChange={e=>setPassword(e.target.value)}
+          placeholder="Password" style={inp}/>
+
+        {error && <div style={{ color:"#e05c7a", fontSize:12, marginBottom:10, textAlign:"center" }}>{error}</div>}
+        {success && <div style={{ color:"#9b59b6", fontSize:12, marginBottom:10, textAlign:"center" }}>{success}</div>}
+
+        <button onClick={handleSubmit} disabled={loading} style={{
+          width:"100%", padding:14, borderRadius:14,
+          background:"linear-gradient(135deg,#e05c7a,#9b59b6)",
+          color:"white", border:"none", fontFamily:"inherit",
+          fontSize:15, fontWeight:700, cursor:"pointer", marginTop:4,
+        }}>
+          {loading ? "Please wait..." : mode==="login" ? "Sign In 🌸" : "Create Account 🌙"}
+        </button>
+
+        <div style={{ textAlign:"center", marginTop:16, fontSize:12, color:"#b07090" }}>
+          {mode==="login" ? "Don't have an account? " : "Already have an account? "}
+          <span onClick={()=>setMode(mode==="login"?"signup":"login")}
+            style={{ color:"#e05c7a", fontWeight:700, cursor:"pointer" }}>
+            {mode==="login"?"Sign up":"Sign in"}
+          </span>
+        </div>
+      </div>
+
+      <div style={{ marginTop:20, fontSize:11, color:"#c0a0b0", textAlign:"center" }}>
+        🔒 Your health data is private and secure
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// MAIN APP
+// ══════════════════════════════════════════════════════════════════════════
 export default function Luna() {
-  const [tab, setTab]           = useState("home");
+  const [user, setUser] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [tab, setTab] = useState("home");
+  const [profile, setProfile] = useState(null);
   const [lastPeriod, setLastPeriod] = useState(() => { const d=new Date(); d.setDate(d.getDate()-8); return dateStr(d); });
   const [cycleLen, setCycleLen] = useState(28);
   const [periodLen, setPeriodLen] = useState(5);
-  const [logs, setLogs]         = useState({});        // { "2026-03-10": { flow, mood, symptoms, notes, bbt, weight, water, stress, sleep } }
-  const [pastCycles, setPastCycles] = useState([]);    // array of {start, length}
-  const [partnerName, setPartnerName]     = useState("Partner");
-  const [notifyDays, setNotifyDays]       = useState(3);
-  const [pillReminder, setPillReminder]   = useState(false);
-  const [pillTime, setPillTime]           = useState("08:00");
-  const [mode, setMode]                   = useState("normal"); // normal | ttc | bc
+  const [logs, setLogs] = useState({});
+  const [partnerName, setPartnerName] = useState("Partner");
+  const [notifyDays, setNotifyDays] = useState(3);
+  const [mode, setMode] = useState("normal");
   const [calMonth, setCalMonth] = useState(() => ({ y:new Date().getFullYear(), m:new Date().getMonth() }));
-  const [selectedDay, setSelectedDay]     = useState(null);
-  const [logForm, setLogForm]   = useState({ flow:"None", mood:"", symptoms:[], notes:"", bbt:"", weight:"", water:0, stress:3, sleep:7 });
-  const [showNotif, setShowNotif]         = useState(false);
-  const [insight, setInsight]             = useState(null);
+  const [selectedDay, setSelectedDay] = useState(null);
+  const [logForm, setLogForm] = useState({ flow:"None", mood:"", symptoms:[], notes:"", bbt:"", weight:"", water:0, stress:3, sleep:7 });
+  const [showNotif, setShowNotif] = useState(false);
+  const [insight, setInsight] = useState(null);
   const [loadingInsight, setLoadingInsight] = useState(false);
-  const [lateAlert, setLateAlert]         = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [loadingData, setLoadingData] = useState(false);
 
   const today = new Date();
   const lpDate = new Date(lastPeriod+"T00:00:00");
-  const diffDays = Math.floor((today - lpDate)/(1000*60*60*24));
-  const dayInCycle = ((diffDays % cycleLen)+cycleLen)%cycleLen+1;
-  const daysLeft   = cycleLen - dayInCycle + 1;
+  const diffDays = Math.floor((today-lpDate)/(1000*60*60*24));
+  const dayInCycle = ((diffDays%cycleLen)+cycleLen)%cycleLen+1;
+  const daysLeft = cycleLen-dayInCycle+1;
   const currentPhase = getPhase(dayInCycle);
-  const phase        = PHASES[currentPhase];
-  const nextPeriod   = addDays(today, daysLeft);
-  const ovulDay      = addDays(lpDate, 13);
-  const fertStart    = addDays(lpDate, 10);
-  const fertEnd      = addDays(lpDate, 16);
-  const avgCycle     = pastCycles.length ? Math.round(pastCycles.reduce((a,c)=>a+c.length,0)/pastCycles.length) : cycleLen;
+  const phase = PHASES[currentPhase];
+  const nextPeriod = addDays(today, daysLeft);
+  const ovulDay = addDays(lpDate, 13);
+  const fertStart = addDays(lpDate, 10);
+  const fertEnd = addDays(lpDate, 16);
 
-  // late alert
-  useEffect(() => { if (dayInCycle > cycleLen+3) setLateAlert(true); }, [dayInCycle, cycleLen]);
-  // partner notif
+  // Check auth on load
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setAuthChecked(true);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Load user data when logged in
+  useEffect(() => {
+    if (user) loadUserData();
+  }, [user]);
+
+  // Partner notif
   useEffect(() => { if (daysLeft <= notifyDays) setShowNotif(true); }, [daysLeft, notifyDays]);
 
-  function getDayInfo(ds) {
-    const d    = new Date(ds+"T00:00:00");
-    const diff = Math.floor((d-lpDate)/(1000*60*60*24));
-    const cd   = ((diff%cycleLen)+cycleLen)%cycleLen+1;
-    return {
-      ph: getPhase(cd), cycleDay: cd,
-      isPeriod: cd<=periodLen, isOvulation: cd>=13&&cd<=16, isFertile: cd>=10&&cd<=16,
+  async function loadUserData() {
+    setLoadingData(true);
+    try {
+      // Load profile/settings
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+
+      if (prof) {
+        setLastPeriod(prof.last_period || lastPeriod);
+        setCycleLen(prof.cycle_length || 28);
+        setPeriodLen(prof.period_length || 5);
+        setPartnerName(prof.partner_name || "Partner");
+        setNotifyDays(prof.notify_days || 3);
+        setMode(prof.mode || "normal");
+        setProfile(prof);
+      }
+
+      // Load logs
+      const { data: logsData } = await supabase
+        .from("cycle_logs")
+        .select("*")
+        .eq("user_id", user.id);
+
+      if (logsData) {
+        const logsObj = {};
+        logsData.forEach(l => {
+          logsObj[l.log_date] = {
+            flow: l.flow, mood: l.mood,
+            symptoms: l.symptoms || [],
+            notes: l.notes, bbt: l.bbt,
+            weight: l.weight, water: l.water || 0,
+            stress: l.stress || 3, sleep: l.sleep || 7,
+          };
+        });
+        setLogs(logsObj);
+      }
+    } catch (e) { console.error(e); }
+    setLoadingData(false);
+  }
+
+  async function saveSettings() {
+    if (!user) return;
+    setSaving(true);
+    await supabase.from("profiles").upsert({
+      user_id: user.id,
+      last_period: lastPeriod,
+      cycle_length: cycleLen,
+      period_length: periodLen,
+      partner_name: partnerName,
+      notify_days: notifyDays,
+      mode: mode,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "user_id" });
+    setSaving(false);
+  }
+
+  async function saveLog() {
+    if (!selectedDay || !user) return;
+    setSaving(true);
+    const logData = {
+      user_id: user.id,
+      log_date: selectedDay,
+      flow: logForm.flow,
+      mood: logForm.mood,
+      symptoms: logForm.symptoms,
+      notes: logForm.notes,
+      bbt: logForm.bbt || null,
+      weight: logForm.weight || null,
+      water: logForm.water,
+      stress: logForm.stress,
+      sleep: logForm.sleep,
+      updated_at: new Date().toISOString(),
     };
+    await supabase.from("cycle_logs").upsert(logData, { onConflict: "user_id,log_date" });
+    setLogs(p => ({ ...p, [selectedDay]: logForm }));
+    setSelectedDay(null);
+    setSaving(false);
+  }
+
+  async function signOut() {
+    await supabase.auth.signOut();
+    setUser(null);
+    setLogs({});
+    setProfile(null);
+  }
+
+  function getDayInfo(ds) {
+    const d = new Date(ds+"T00:00:00");
+    const diff = Math.floor((d-lpDate)/(1000*60*60*24));
+    const cd = ((diff%cycleLen)+cycleLen)%cycleLen+1;
+    return { ph:getPhase(cd), cycleDay:cd, isPeriod:cd<=periodLen, isOvulation:cd>=13&&cd<=16, isFertile:cd>=10&&cd<=16 };
   }
 
   function buildCal(y,m) {
-    const first = new Date(y,m,1).getDay();
-    const total = new Date(y,m+1,0).getDate();
-    const cells = [];
+    const first=new Date(y,m,1).getDay();
+    const total=new Date(y,m+1,0).getDate();
+    const cells=[];
     for(let i=0;i<first;i++) cells.push(null);
     for(let d=1;d<=total;d++) cells.push(d);
     return cells;
@@ -133,41 +349,60 @@ export default function Luna() {
     setSelectedDay(ds);
     setLogForm(logs[ds] || { flow:"None", mood:"", symptoms:[], notes:"", bbt:"", weight:"", water:0, stress:3, sleep:7 });
   }
-  function saveLog() {
-    setLogs(p=>({...p,[selectedDay]:logForm}));
-    setSelectedDay(null);
-  }
   function toggleSym(s) {
-    setLogForm(p=>({ ...p, symptoms: p.symptoms.includes(s)?p.symptoms.filter(x=>x!==s):[...p.symptoms,s] }));
+    setLogForm(p=>({ ...p, symptoms:p.symptoms.includes(s)?p.symptoms.filter(x=>x!==s):[...p.symptoms,s] }));
   }
 
   async function fetchInsight() {
     setLoadingInsight(true); setInsight(null);
     const summary = Object.entries(logs).slice(-7).map(([d,l])=>
-      `${d}: flow=${l.flow}, mood=${l.mood}, symptoms=${l.symptoms?.join(",")||"none"}, sleep=${l.sleep}h, stress=${l.stress}/5, water=${l.water} glasses`
+      `${d}: flow=${l.flow}, mood=${l.mood}, symptoms=${l.symptoms?.join(",")||"none"}, sleep=${l.sleep}h, stress=${l.stress}/5`
     ).join("\n")||"No logs yet.";
     try {
       const res = await fetch("https://api.anthropic.com/v1/messages",{
         method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({
+        body:JSON.stringify({
           model:"claude-sonnet-4-20250514", max_tokens:1000,
-          messages:[{ role:"user", content:
-            `You are a compassionate women's health assistant. Based on:\n- Phase: ${currentPhase} (Day ${dayInCycle}/${cycleLen})\n- Days to next period: ${daysLeft}\n- Mode: ${mode}\n- Recent logs:\n${summary}\n\nGive a warm, personalized 4-sentence insight: 1) what to physically/emotionally expect, 2) self-care tip, 3) nutrition/lifestyle rec, 4) one positive affirmation. Be supportive and empowering.`
+          messages:[{role:"user",content:
+            `You are a compassionate women's health assistant. Based on:\n- Phase: ${currentPhase} (Day ${dayInCycle}/${cycleLen})\n- Days to next period: ${daysLeft}\n- Mode: ${mode}\n- Recent logs:\n${summary}\n\nGive a warm, personalized 4-sentence insight covering: physical/emotional expectations, self-care tip, nutrition recommendation, and a positive affirmation. Be supportive and empowering.`
           }]
         })
       });
-      const data = await res.json();
+      const data=await res.json();
       setInsight(data.content?.[0]?.text||"Could not load insight.");
     } catch { setInsight("Could not connect. Please try again."); }
     setLoadingInsight(false);
   }
 
-  // ── shared input style ────────────────────────────────────────────────
   const inp = { width:"100%", padding:"9px 12px", borderRadius:12,
     border:"1.5px solid #e8c4d8", fontFamily:"inherit", fontSize:13,
     color:"#4a2040", boxSizing:"border-box", outline:"none" };
 
-  // ══════════════════════════════════════════════════════════════════════
+  // ── loading ──
+  if (!authChecked) return (
+    <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center",
+      background:"linear-gradient(150deg,#fff0f7,#fde8f5,#f0e0ff)", fontFamily:"serif" }}>
+      <div style={{ textAlign:"center" }}>
+        <div style={{ fontSize:48, marginBottom:12 }}>🌙</div>
+        <div style={{ color:"#b07090", fontSize:14 }}>Loading Luna...</div>
+      </div>
+    </div>
+  );
+
+  // ── auth screen ──
+  if (!user) return <AuthScreen onAuth={setUser}/>;
+
+  // ── loading data ──
+  if (loadingData) return (
+    <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center",
+      background:"linear-gradient(150deg,#fff0f7,#fde8f5,#f0e0ff)", fontFamily:"serif" }}>
+      <div style={{ textAlign:"center" }}>
+        <div style={{ fontSize:48, marginBottom:12 }}>🌸</div>
+        <div style={{ color:"#b07090", fontSize:14 }}>Loading your data...</div>
+      </div>
+    </div>
+  );
+
   return (
     <div style={{
       minHeight:"100vh",
@@ -176,14 +411,14 @@ export default function Luna() {
       color:"#4a2040", maxWidth:440, margin:"0 auto", paddingBottom:90,
     }}>
 
-      {/* ── alerts ── */}
+      {/* Partner notification */}
       {showNotif && (
         <div style={{ position:"fixed",top:0,left:"50%",transform:"translateX(-50%)",
           width:"100%",maxWidth:440,zIndex:200,
           background:"linear-gradient(90deg,#e05c7a,#c97ab2)",
           color:"white",padding:"13px 18px",
           display:"flex",justifyContent:"space-between",alignItems:"center",
-          boxShadow:"0 4px 20px rgba(224,92,122,0.4)" }}>
+          boxShadow:"0 4px 20px rgba(224,92,122,0.4)"}}>
           <div>
             <div style={{fontWeight:700,fontSize:14}}>💌 Heads up, {partnerName}!</div>
             <div style={{fontSize:12,opacity:0.9}}>Period expected in ~{daysLeft} days 🌸</div>
@@ -191,43 +426,42 @@ export default function Luna() {
           <button onClick={()=>setShowNotif(false)} style={{background:"none",border:"none",color:"white",fontSize:20,cursor:"pointer"}}>✕</button>
         </div>
       )}
-      {lateAlert && (
-        <div style={{ position:"fixed",top:showNotif?52:0,left:"50%",transform:"translateX(-50%)",
-          width:"100%",maxWidth:440,zIndex:199,
-          background:"linear-gradient(90deg,#9b59b6,#6c3483)",
-          color:"white",padding:"13px 18px",
-          display:"flex",justifyContent:"space-between",alignItems:"center" }}>
-          <div>
-            <div style={{fontWeight:700,fontSize:14}}>⚠️ Period may be late</div>
-            <div style={{fontSize:12,opacity:0.9}}>You're on Day {dayInCycle} — consider taking a test.</div>
-          </div>
-          <button onClick={()=>setLateAlert(false)} style={{background:"none",border:"none",color:"white",fontSize:20,cursor:"pointer"}}>✕</button>
-        </div>
-      )}
 
-      {/* ── header ── */}
+      {/* Header */}
       <div style={{
         background:"linear-gradient(135deg,#e05c7a 0%,#c97ab2 55%,#9b59b6 100%)",
-        padding:`${showNotif||lateAlert?60:40}px 22px 26px`,
+        padding:`${showNotif?60:40}px 22px 26px`,
         borderRadius:"0 0 32px 32px",
         boxShadow:"0 8px 32px rgba(155,89,182,0.25)",
       }}>
-        <div style={{fontSize:11,color:"rgba(255,255,255,0.75)",letterSpacing:2,textTransform:"uppercase",marginBottom:2}}>
-          {fmt(today)}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+          <div>
+            <div style={{fontSize:11,color:"rgba(255,255,255,0.75)",letterSpacing:2,textTransform:"uppercase",marginBottom:2}}>
+              {fmt(today)}
+            </div>
+            <div style={{fontSize:26,fontWeight:700,color:"white",marginBottom:4}}>
+              {phase.emoji} {phase.label} Phase
+            </div>
+            <div style={{fontSize:13,color:"rgba(255,255,255,0.85)",marginBottom:12}}>
+              Day {dayInCycle} of {cycleLen} · {daysLeft} days to next period
+            </div>
+          </div>
+          <div style={{textAlign:"right"}}>
+            <div style={{fontSize:11,color:"rgba(255,255,255,0.75)",marginBottom:4}}>
+              {user.user_metadata?.full_name || user.email?.split("@")[0]}
+            </div>
+            <button onClick={signOut} style={{background:"rgba(255,255,255,0.2)",border:"1px solid rgba(255,255,255,0.4)",
+              color:"white",borderRadius:10,padding:"4px 10px",fontSize:11,fontFamily:"inherit",cursor:"pointer"}}>
+              Sign Out
+            </button>
+          </div>
         </div>
-        <div style={{fontSize:26,fontWeight:700,color:"white",marginBottom:4}}>
-          {phase.emoji} {phase.label} Phase
-        </div>
-        <div style={{fontSize:13,color:"rgba(255,255,255,0.85)",marginBottom:14}}>
-          Day {dayInCycle} of {cycleLen} · {daysLeft} days to next period
-        </div>
-        {/* mode badges */}
         <div style={{display:"flex",gap:8}}>
-          {[["normal","🌸 Normal"],["ttc","👶 TTC"],["bc","💊 Birth Control"]].map(([k,l])=>(
+          {[["normal","🌸 Normal"],["ttc","👶 TTC"],["bc","💊 BC"]].map(([k,l])=>(
             <button key={k} onClick={()=>setMode(k)} style={{
               padding:"4px 12px",borderRadius:14,fontSize:11,fontWeight:700,fontFamily:"inherit",cursor:"pointer",
-              background: mode===k?"rgba(255,255,255,0.3)":"rgba(255,255,255,0.1)",
-              color:"white", border: mode===k?"1.5px solid rgba(255,255,255,0.7)":"1.5px solid transparent",
+              background:mode===k?"rgba(255,255,255,0.3)":"rgba(255,255,255,0.1)",
+              color:"white",border:mode===k?"1.5px solid rgba(255,255,255,0.7)":"1.5px solid transparent",
             }}>{l}</button>
           ))}
         </div>
@@ -235,7 +469,7 @@ export default function Luna() {
 
       <div style={{padding:"18px 14px"}}>
 
-        {/* ════════════ HOME ════════════ */}
+        {/* ══ HOME ══ */}
         {tab==="home" && (
           <div>
             {/* cycle ring */}
@@ -243,18 +477,15 @@ export default function Luna() {
               <div style={{position:"relative",width:170,height:170}}>
                 <svg width="170" height="170" style={{transform:"rotate(-90deg)"}}>
                   <circle cx="85" cy="85" r="68" fill="none" stroke="#f0d0e8" strokeWidth="13"/>
-                  <circle cx="85" cy="85" r="68" fill="none"
-                    stroke="url(#rg)" strokeWidth="13" strokeLinecap="round"
+                  <circle cx="85" cy="85" r="68" fill="none" stroke="url(#rg)" strokeWidth="13" strokeLinecap="round"
                     strokeDasharray={`${2*Math.PI*68}`}
                     strokeDashoffset={`${2*Math.PI*68*(1-dayInCycle/cycleLen)}`}/>
-                  <defs>
-                    <linearGradient id="rg" x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stopColor="#e05c7a"/>
-                      <stop offset="100%" stopColor="#9b59b6"/>
-                    </linearGradient>
-                  </defs>
+                  <defs><linearGradient id="rg" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#e05c7a"/><stop offset="100%" stopColor="#9b59b6"/>
+                  </linearGradient></defs>
                 </svg>
-                <div style={{position:"absolute",top:0,left:0,width:"100%",height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
+                <div style={{position:"absolute",top:0,left:0,width:"100%",height:"100%",
+                  display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
                   <div style={{fontSize:34,fontWeight:800,color:"#9b59b6"}}>{dayInCycle}</div>
                   <div style={{fontSize:11,color:"#b07090",fontWeight:600}}>of {cycleLen} days</div>
                   <div style={{fontSize:10,color:phase.color,fontWeight:700,marginTop:2}}>{phase.emoji} {phase.label}</div>
@@ -262,15 +493,13 @@ export default function Luna() {
               </div>
             </div>
 
-            {/* key dates grid */}
+            {/* key dates */}
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
               {[
-                {l:"Next Period",   v:fmtShort(nextPeriod), e:"🌸", c:"#e05c7a"},
-                {l:"Ovulation",     v:fmtShort(ovulDay),    e:"✨", c:"#9b59b6"},
-                {l:"Fertile Start", v:fmtShort(fertStart),  e:"🌱", c:"#c97ab2"},
-                {l:"Fertile End",   v:fmtShort(fertEnd),    e:"🍀", c:"#d4739c"},
-                {l:"Avg Cycle",     v:`${avgCycle} days`,   e:"🔄", c:"#9b59b6"},
-                {l:"Period Length", v:`${periodLen} days`,  e:"📅", c:"#e05c7a"},
+                {l:"Next Period",v:fmtShort(nextPeriod),e:"🌸",c:"#e05c7a"},
+                {l:"Ovulation",v:fmtShort(ovulDay),e:"✨",c:"#9b59b6"},
+                {l:"Fertile Start",v:fmtShort(fertStart),e:"🌱",c:"#c97ab2"},
+                {l:"Fertile End",v:fmtShort(fertEnd),e:"🍀",c:"#d4739c"},
               ].map(x=>(
                 <div key={x.l} style={{background:"white",borderRadius:16,padding:"12px 14px",
                   boxShadow:"0 2px 10px rgba(200,120,180,0.1)",borderLeft:`4px solid ${x.c}`}}>
@@ -281,19 +510,18 @@ export default function Luna() {
               ))}
             </div>
 
-            {/* today's quick log summary */}
+            {/* today log summary */}
             {logs[dateStr(today)] && (
               <Card>
                 <SectionTitle>📋 Today's Log</SectionTitle>
-                {(() => { const l=logs[dateStr(today)]; return (
+                {(()=>{ const l=logs[dateStr(today)]; return (
                   <div style={{fontSize:13,color:"#6a3060",lineHeight:1.8}}>
                     {l.flow!=="None"&&<div>🌊 Flow: <b>{l.flow}</b></div>}
                     {l.mood&&<div>Mood: <b>{l.mood}</b></div>}
                     {l.symptoms?.length>0&&<div>⚡ {l.symptoms.join(" · ")}</div>}
                     {l.bbt&&<div>🌡️ BBT: <b>{l.bbt}°C</b></div>}
                     {l.weight&&<div>⚖️ Weight: <b>{l.weight} kg</b></div>}
-                    <div>💧 Water: <b>{l.water} glasses</b></div>
-                    <div>😴 Sleep: <b>{l.sleep}h</b> · 😰 Stress: <b>{l.stress}/5</b></div>
+                    <div>💧 Water: <b>{l.water} glasses</b> · 😴 Sleep: <b>{l.sleep}h</b></div>
                   </div>
                 );})()}
               </Card>
@@ -304,10 +532,10 @@ export default function Luna() {
               <div style={{fontSize:13,fontWeight:700,color:phase.color,marginBottom:5}}>💡 Phase Tip</div>
               <div style={{fontSize:13,lineHeight:1.6,color:"#6a3060"}}>
                 {{
-                  menstrual:"Rest and use heat pads for cramps. Iron-rich foods like spinach help replenish blood loss. Be gentle with yourself.",
-                  follicular:"Your energy is rising! Great time to start new projects, socialize, and exercise more intensely.",
-                  ovulation:"Peak fertility window. You may feel more confident, social, and attractive. Great time for important conversations.",
-                  luteal:"Practice self-care. Magnesium-rich foods ease PMS. Prioritize sleep and reduce stress where possible.",
+                  menstrual:"Rest and use heat pads for cramps. Iron-rich foods like spinach help replenish blood loss.",
+                  follicular:"Your energy is rising! Great time to start new projects and exercise more intensely.",
+                  ovulation:"Peak fertility window. You may feel more confident and social today.",
+                  luteal:"Practice self-care. Magnesium-rich foods ease PMS. Prioritize sleep.",
                 }[currentPhase]}
               </div>
             </div>
@@ -324,20 +552,6 @@ export default function Luna() {
               </Card>
             </div>
 
-            {/* pill reminder */}
-            {mode==="bc" && (
-              <Card>
-                <SectionTitle color="#e05c7a">💊 Birth Control Reminder</SectionTitle>
-                <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
-                  <label style={{fontSize:13,color:"#6a3060"}}>Remind me daily at:</label>
-                  <input type="time" value={pillTime} onChange={e=>setPillTime(e.target.value)} style={{...inp,width:"auto"}}/>
-                </div>
-                <div style={{background:"#fde8ee",borderRadius:12,padding:12,fontSize:13,color:"#e05c7a",fontWeight:600}}>
-                  ⏰ Next reminder: Today at {pillTime}
-                </div>
-              </Card>
-            )}
-
             {/* settings */}
             <Card>
               <SectionTitle>⚙️ My Cycle Settings</SectionTitle>
@@ -345,21 +559,26 @@ export default function Luna() {
                 <label style={{fontSize:11,color:"#b07090",display:"block",marginBottom:3}}>Last Period Start</label>
                 <input type="date" value={lastPeriod} onChange={e=>setLastPeriod(e.target.value)} style={inp}/>
               </div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
                 <div>
-                  <label style={{fontSize:11,color:"#b07090",display:"block",marginBottom:3}}>Cycle Length (days)</label>
+                  <label style={{fontSize:11,color:"#b07090",display:"block",marginBottom:3}}>Cycle Length</label>
                   <input type="number" value={cycleLen} min={21} max={40} onChange={e=>setCycleLen(+e.target.value)} style={inp}/>
                 </div>
                 <div>
-                  <label style={{fontSize:11,color:"#b07090",display:"block",marginBottom:3}}>Period Length (days)</label>
+                  <label style={{fontSize:11,color:"#b07090",display:"block",marginBottom:3}}>Period Length</label>
                   <input type="number" value={periodLen} min={2} max={10} onChange={e=>setPeriodLen(+e.target.value)} style={inp}/>
                 </div>
               </div>
+              <button onClick={saveSettings} style={{width:"100%",padding:12,borderRadius:14,
+                background:"linear-gradient(135deg,#e05c7a,#9b59b6)",
+                color:"white",border:"none",fontFamily:"inherit",fontSize:14,fontWeight:700,cursor:"pointer"}}>
+                {saving ? "Saving..." : "💾 Save Settings"}
+              </button>
             </Card>
           </div>
         )}
 
-        {/* ════════════ CALENDAR ════════════ */}
+        {/* ══ CALENDAR ══ */}
         {tab==="calendar" && (
           <div>
             <Card>
@@ -409,43 +628,7 @@ export default function Luna() {
               </div>
             </Card>
 
-            {/* past cycles */}
-            <Card>
-              <SectionTitle>📊 Add Past Cycle</SectionTitle>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr auto",gap:8,alignItems:"end"}}>
-                <div>
-                  <label style={{fontSize:11,color:"#b07090",display:"block",marginBottom:3}}>Period Start</label>
-                  <input type="date" id="ps" style={inp}/>
-                </div>
-                <div>
-                  <label style={{fontSize:11,color:"#b07090",display:"block",marginBottom:3}}>Cycle Length</label>
-                  <input type="number" id="pl" defaultValue={28} min={21} max={40} style={inp}/>
-                </div>
-                <button onClick={()=>{
-                  const s=document.getElementById("ps").value;
-                  const l=+document.getElementById("pl").value;
-                  if(s&&l) setPastCycles(p=>[...p,{start:s,length:l}]);
-                }} style={{padding:"9px 14px",borderRadius:12,background:"#e05c7a",color:"white",
-                  border:"none",fontFamily:"inherit",fontSize:13,fontWeight:700,cursor:"pointer"}}>Add</button>
-              </div>
-              {pastCycles.length>0&&(
-                <div style={{marginTop:12}}>
-                  {pastCycles.map((c,i)=>(
-                    <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",
-                      borderBottom:"1px solid #f0d0e8",fontSize:13,color:"#6a3060"}}>
-                      <span>🌸 {c.start}</span><span>{c.length} days</span>
-                      <button onClick={()=>setPastCycles(p=>p.filter((_,j)=>j!==i))}
-                        style={{background:"none",border:"none",color:"#e05c7a",cursor:"pointer",fontSize:14}}>✕</button>
-                    </div>
-                  ))}
-                  <div style={{marginTop:8,fontSize:13,fontWeight:700,color:"#9b59b6"}}>
-                    📈 Average cycle: {avgCycle} days
-                  </div>
-                </div>
-              )}
-            </Card>
-
-            {/* log modal */}
+            {/* Log modal */}
             {selectedDay&&(
               <div style={{position:"fixed",inset:0,background:"rgba(74,32,64,0.55)",zIndex:100,
                 display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>setSelectedDay(null)}>
@@ -457,32 +640,24 @@ export default function Luna() {
                   <div style={{fontWeight:700,fontSize:15,color:"#9b59b6",marginBottom:14}}>
                     📝 Log — {selectedDay}
                   </div>
-
-                  {/* flow */}
                   <div style={{marginBottom:12}}>
                     <div style={{fontSize:12,color:"#b07090",marginBottom:6,fontWeight:600}}>🌊 Flow</div>
                     <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
                       {FLOW.map(f=><Pill key={f} active={logForm.flow===f} color="#e05c7a" onClick={()=>setLogForm(p=>({...p,flow:f}))}>{f}</Pill>)}
                     </div>
                   </div>
-
-                  {/* mood */}
                   <div style={{marginBottom:12}}>
                     <div style={{fontSize:12,color:"#b07090",marginBottom:6,fontWeight:600}}>😊 Mood</div>
                     <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
                       {MOODS.map(m=><Pill key={m} active={logForm.mood===m} color="#c97ab2" onClick={()=>setLogForm(p=>({...p,mood:m}))}>{m}</Pill>)}
                     </div>
                   </div>
-
-                  {/* symptoms */}
                   <div style={{marginBottom:12}}>
                     <div style={{fontSize:12,color:"#b07090",marginBottom:6,fontWeight:600}}>⚡ Symptoms</div>
                     <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
                       {SYMPTOMS.map(s=><Pill key={s} active={logForm.symptoms?.includes(s)} color="#9b59b6" onClick={()=>toggleSym(s)}>{s}</Pill>)}
                     </div>
                   </div>
-
-                  {/* health metrics */}
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
                     <div>
                       <label style={{fontSize:12,color:"#b07090",display:"block",marginBottom:3}}>🌡️ BBT (°C)</label>
@@ -493,10 +668,8 @@ export default function Luna() {
                       <input type="number" step="0.1" value={logForm.weight} onChange={e=>setLogForm(p=>({...p,weight:e.target.value}))} placeholder="55.0" style={inp}/>
                     </div>
                   </div>
-
-                  {/* water */}
                   <div style={{marginBottom:12}}>
-                    <div style={{fontSize:12,color:"#b07090",marginBottom:6,fontWeight:600}}>💧 Water Intake ({logForm.water} glasses)</div>
+                    <div style={{fontSize:12,color:"#b07090",marginBottom:6,fontWeight:600}}>💧 Water ({logForm.water} glasses)</div>
                     <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                       {[0,1,2,3,4,5,6,7,8].map(n=>(
                         <button key={n} onClick={()=>setLogForm(p=>({...p,water:n}))} style={{
@@ -508,8 +681,6 @@ export default function Luna() {
                       ))}
                     </div>
                   </div>
-
-                  {/* sleep & stress */}
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
                     <div>
                       <label style={{fontSize:12,color:"#b07090",display:"block",marginBottom:3}}>😴 Sleep ({logForm.sleep}h)</label>
@@ -520,19 +691,15 @@ export default function Luna() {
                       <input type="range" min={1} max={5} value={logForm.stress} onChange={e=>setLogForm(p=>({...p,stress:+e.target.value}))} style={{width:"100%",accentColor:"#e05c7a"}}/>
                     </div>
                   </div>
-
-                  {/* notes */}
                   <div style={{marginBottom:16}}>
                     <label style={{fontSize:12,color:"#b07090",display:"block",marginBottom:3}}>📝 Notes</label>
                     <textarea value={logForm.notes} onChange={e=>setLogForm(p=>({...p,notes:e.target.value}))}
-                      placeholder="How are you feeling today?" rows={3}
-                      style={{...inp,resize:"none"}}/>
+                      placeholder="How are you feeling today?" rows={3} style={{...inp,resize:"none"}}/>
                   </div>
-
                   <button onClick={saveLog} style={{width:"100%",padding:14,borderRadius:16,
                     background:"linear-gradient(135deg,#e05c7a,#9b59b6)",
                     color:"white",border:"none",fontFamily:"inherit",fontSize:15,fontWeight:700,cursor:"pointer"}}>
-                    Save Log ✓
+                    {saving?"Saving...":"💾 Save to Database ✓"}
                   </button>
                 </div>
               </div>
@@ -540,7 +707,7 @@ export default function Luna() {
           </div>
         )}
 
-        {/* ════════════ PARTNER ════════════ */}
+        {/* ══ PARTNER ══ */}
         {tab==="partner" && (
           <div>
             <Card>
@@ -549,21 +716,28 @@ export default function Luna() {
                 <label style={{fontSize:11,color:"#b07090",display:"block",marginBottom:3}}>Partner's Name</label>
                 <input value={partnerName} onChange={e=>setPartnerName(e.target.value)} style={inp}/>
               </div>
-              <div style={{marginBottom:6}}>
+              <div style={{marginBottom:14}}>
                 <label style={{fontSize:11,color:"#b07090",display:"block",marginBottom:3}}>
                   Notify {notifyDays} day{notifyDays>1?"s":""} before period
                 </label>
                 <input type="range" min={1} max={7} value={notifyDays} onChange={e=>setNotifyDays(+e.target.value)} style={{width:"100%",accentColor:"#e05c7a"}}/>
-                <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"#b07090"}}><span>1 day</span><span>7 days</span></div>
               </div>
+              <button onClick={saveSettings} style={{width:"100%",padding:12,borderRadius:14,
+                background:"linear-gradient(135deg,#e05c7a,#c97ab2)",
+                color:"white",border:"none",fontFamily:"inherit",fontSize:14,fontWeight:700,cursor:"pointer"}}>
+                {saving?"Saving...":"💾 Save Partner Settings"}
+              </button>
             </Card>
 
-            {/* message preview */}
             <Card>
               <SectionTitle color="#c97ab2">📬 Message for {partnerName}</SectionTitle>
               <div style={{background:"linear-gradient(135deg,#fde8ee,#f5e0ff)",borderRadius:14,padding:14,fontSize:13,lineHeight:1.75,color:"#6a3060",fontStyle:"italic",marginBottom:14}}>
-                "Hey {partnerName}! Quick heads-up 💕 Her period is expected in about {daysLeft} days. She's currently in her <b style={{fontStyle:"normal"}}>{currentPhase}</b> phase. {PARTNER_GUIDE[currentPhase].do} 
-                {mode==="ttc"?" (They're trying to conceive — this is an important window! 🍼)":""}"
+                "Hey {partnerName}! Quick heads-up 💕 Period expected in about {daysLeft} days.
+                She's in her <b style={{fontStyle:"normal"}}>{currentPhase}</b> phase right now.
+                {currentPhase==="luteal"?" Be extra patient and offer extra help 🤗":
+                 currentPhase==="menstrual"?" Bring comfort food and a heating pad 🌸":
+                 currentPhase==="ovulation"?" Great time for a date night! ✨":
+                 " She's feeling energetic — plan something fun! 🌱"}"
               </div>
               <button onClick={()=>setShowNotif(true)} style={{width:"100%",padding:13,borderRadius:14,
                 background:"linear-gradient(135deg,#e05c7a,#c97ab2)",
@@ -572,49 +746,34 @@ export default function Luna() {
               </button>
             </Card>
 
-            {/* phase guide for partner */}
             <Card>
-              <SectionTitle>🤝 {partnerName}'s Phase Guide</SectionTitle>
+              <SectionTitle>🤝 Partner's Phase Guide</SectionTitle>
               {Object.entries(PHASES).map(([key,p])=>{
-                const g=PARTNER_GUIDE[key];
+                const guide={
+                  menstrual:{do:"Bring comfort food, heating pad & cuddles.",dont:"Avoid stressful topics."},
+                  follicular:{do:"Plan dates and adventures!",dont:"Don't cancel plans."},
+                  ovulation:{do:"Perfect time for romance & deep talks.",dont:"Don't be distant."},
+                  luteal:{do:"Be patient, validate feelings, offer help.",dont:"Don't dismiss emotions as PMS."},
+                };
                 return (
                   <div key={key} style={{padding:"12px 14px",borderRadius:14,background:p.bg,marginBottom:9}}>
-                    <div style={{fontSize:13,fontWeight:700,color:p.color,marginBottom:6}}>{p.emoji} {p.label} <span style={{fontWeight:400,fontSize:11}}>(Days {p.days})</span></div>
-                    <div style={{fontSize:12,color:"#6a3060",marginBottom:3}}>✅ <b>Do:</b> {g.do}</div>
-                    <div style={{fontSize:12,color:"#9b3060"}}>❌ <b>Avoid:</b> {g.dont}</div>
+                    <div style={{fontSize:13,fontWeight:700,color:p.color,marginBottom:6}}>{p.emoji} {p.label}</div>
+                    <div style={{fontSize:12,color:"#6a3060",marginBottom:3}}>✅ {guide[key].do}</div>
+                    <div style={{fontSize:12,color:"#9b3060"}}>❌ {guide[key].dont}</div>
                   </div>
                 );
               })}
             </Card>
-
-            {/* TTC section */}
-            {mode==="ttc" && (
-              <Card>
-                <SectionTitle color="#9b59b6">👶 Trying to Conceive</SectionTitle>
-                <div style={{fontSize:13,lineHeight:1.75,color:"#6a3060"}}>
-                  <div style={{background:"#ede0f7",borderRadius:12,padding:12,marginBottom:10}}>
-                    <b>🌟 Best time to try:</b> {fmtShort(fertStart)} – {fmtShort(fertEnd)}
-                  </div>
-                  <div style={{background:"#fde8ee",borderRadius:12,padding:12,marginBottom:10}}>
-                    <b>✨ Ovulation day:</b> {fmtShort(ovulDay)} — highest chance!
-                  </div>
-                  <div style={{fontSize:12,color:"#9b59b6",marginTop:8}}>
-                    💡 Track BBT daily — a rise of 0.2°C+ after ovulation confirms it occurred.
-                  </div>
-                </div>
-              </Card>
-            )}
           </div>
         )}
 
-        {/* ════════════ INSIGHTS ════════════ */}
+        {/* ══ INSIGHTS ══ */}
         {tab==="insights" && (
           <div>
-            {/* AI */}
             <div style={{background:"linear-gradient(135deg,#9b59b6,#c97ab2)",borderRadius:20,padding:20,marginBottom:14,boxShadow:"0 4px 20px rgba(155,89,182,0.3)"}}>
               <div style={{fontSize:15,fontWeight:700,color:"white",marginBottom:8}}>✨ AI Health Insight</div>
               <div style={{fontSize:13,color:"rgba(255,255,255,0.92)",lineHeight:1.75,minHeight:60}}>
-                {loadingInsight ? "Getting your personalized insight…" : insight || "Tap below for a personalized health insight based on your phase and logs."}
+                {loadingInsight?"Getting your personalized insight…":insight||"Tap below for a personalized health insight based on your phase and logs."}
               </div>
               <button onClick={fetchInsight} style={{marginTop:14,padding:"10px 20px",borderRadius:12,
                 background:"rgba(255,255,255,0.2)",border:"1.5px solid rgba(255,255,255,0.5)",
@@ -626,27 +785,27 @@ export default function Luna() {
             {/* stats */}
             <Card>
               <SectionTitle>📈 This Cycle Stats</SectionTitle>
-              {(() => {
-                const dayLogs = Object.entries(logs).filter(([d])=>new Date(d+"T00:00:00")>=lpDate);
-                const avgSleep = dayLogs.length ? (dayLogs.reduce((a,[,l])=>a+(l.sleep||0),0)/dayLogs.length).toFixed(1) : "—";
-                const avgStress = dayLogs.length ? (dayLogs.reduce((a,[,l])=>a+(l.stress||0),0)/dayLogs.length).toFixed(1) : "—";
-                const avgWater = dayLogs.length ? (dayLogs.reduce((a,[,l])=>a+(l.water||0),0)/dayLogs.length).toFixed(1) : "—";
-                const topSym = (() => {
-                  const cnt={}; dayLogs.forEach(([,l])=>l.symptoms?.forEach(s=>cnt[s]=(cnt[s]||0)+1));
-                  return Object.entries(cnt).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([s])=>s);
-                })();
+              {(()=>{
+                const dayLogs=Object.entries(logs).filter(([d])=>new Date(d+"T00:00:00")>=lpDate);
+                const avgSleep=dayLogs.length?(dayLogs.reduce((a,[,l])=>a+(l.sleep||0),0)/dayLogs.length).toFixed(1):"—";
+                const avgStress=dayLogs.length?(dayLogs.reduce((a,[,l])=>a+(l.stress||0),0)/dayLogs.length).toFixed(1):"—";
+                const avgWater=dayLogs.length?(dayLogs.reduce((a,[,l])=>a+(l.water||0),0)/dayLogs.length).toFixed(1):"—";
+                const cnt={}; dayLogs.forEach(([,l])=>l.symptoms?.forEach(s=>cnt[s]=(cnt[s]||0)+1));
+                const topSym=Object.entries(cnt).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([s])=>s);
                 return (
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,textAlign:"center"}}>
-                    {[["😴",avgSleep+"h","Avg Sleep"],["😰",avgStress+"/5","Avg Stress"],["💧",avgWater,"Avg Water"]].map(([e,v,l])=>(
-                      <div key={l} style={{background:"#f5e0ff",borderRadius:14,padding:12}}>
-                        <div style={{fontSize:20}}>{e}</div>
-                        <div style={{fontSize:16,fontWeight:700,color:"#9b59b6"}}>{v}</div>
-                        <div style={{fontSize:10,color:"#b07090"}}>{l}</div>
-                      </div>
-                    ))}
+                  <div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,textAlign:"center",marginBottom:10}}>
+                      {[["😴",avgSleep+"h","Avg Sleep"],["😰",avgStress+"/5","Avg Stress"],["💧",avgWater,"Avg Water"]].map(([e,v,l])=>(
+                        <div key={l} style={{background:"#f5e0ff",borderRadius:14,padding:12}}>
+                          <div style={{fontSize:20}}>{e}</div>
+                          <div style={{fontSize:16,fontWeight:700,color:"#9b59b6"}}>{v}</div>
+                          <div style={{fontSize:10,color:"#b07090"}}>{l}</div>
+                        </div>
+                      ))}
+                    </div>
                     {topSym.length>0&&(
-                      <div style={{gridColumn:"1/-1",background:"#fde8ee",borderRadius:14,padding:12,textAlign:"left"}}>
-                        <div style={{fontSize:12,fontWeight:700,color:"#e05c7a",marginBottom:4}}>⚡ Top Symptoms This Cycle</div>
+                      <div style={{background:"#fde8ee",borderRadius:14,padding:12}}>
+                        <div style={{fontSize:12,fontWeight:700,color:"#e05c7a",marginBottom:4}}>⚡ Top Symptoms</div>
                         <div style={{fontSize:13,color:"#6a3060"}}>{topSym.join(" · ")}</div>
                       </div>
                     )}
@@ -658,15 +817,15 @@ export default function Luna() {
             {/* recent logs */}
             <Card>
               <SectionTitle>📋 Recent Logs</SectionTitle>
-              {Object.keys(logs).length===0 ? (
+              {Object.keys(logs).length===0?(
                 <div style={{fontSize:13,color:"#b07090",textAlign:"center",padding:"16px 0"}}>
                   No logs yet — tap any calendar day to start! 📅
                 </div>
-              ) : Object.entries(logs).slice(-6).reverse().map(([d,l])=>(
+              ):Object.entries(logs).slice(-6).reverse().map(([d,l])=>(
                 <div key={d} style={{borderBottom:"1px solid #f0d0e8",paddingBottom:10,marginBottom:10}}>
                   <div style={{fontSize:13,fontWeight:700,color:"#e05c7a"}}>{d}</div>
                   <div style={{fontSize:12,color:"#b07090",marginTop:3,lineHeight:1.7}}>
-                    {l.flow!=="None"&&<span>🌊 {l.flow} · </span>}
+                    {l.flow!=="None"&&<span>🌊{l.flow} · </span>}
                     {l.mood&&<span>{l.mood} · </span>}
                     {l.bbt&&<span>🌡️{l.bbt}°C · </span>}
                     {l.sleep&&<span>😴{l.sleep}h · </span>}
@@ -677,30 +836,11 @@ export default function Luna() {
                 </div>
               ))}
             </Card>
-
-            {/* health tips all phases */}
-            <Card>
-              <SectionTitle>🌿 All Phase Health Tips</SectionTitle>
-              {Object.entries(PHASES).map(([key,p])=>(
-                <div key={key} style={{padding:"12px 14px",borderRadius:14,background:p.bg,marginBottom:9}}>
-                  <div style={{fontSize:13,fontWeight:700,color:p.color,marginBottom:4}}>{p.emoji} {p.label}</div>
-                  <div style={{fontSize:12,color:"#6a3060",lineHeight:1.55}}>
-                    {{
-                      menstrual:"Rest, heat pads, iron-rich foods (spinach, lentils). Avoid caffeine.",
-                      follicular:"Boost energy with high-protein meals. Start new habits & goals now.",
-                      ovulation:"Stay hydrated, eat antioxidants. Great time for social & romance.",
-                      luteal:"Magnesium foods reduce PMS. Prioritize sleep & reduce screen time.",
-                    }[key]}
-                  </div>
-                </div>
-              ))}
-            </Card>
           </div>
         )}
-
       </div>
 
-      {/* ── bottom nav ── */}
+      {/* Bottom nav */}
       <div style={{
         position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",
         width:"100%",maxWidth:440,
@@ -709,10 +849,10 @@ export default function Luna() {
         boxShadow:"0 -4px 20px rgba(200,120,180,0.12)",zIndex:50,
       }}>
         {[
-          {id:"home",    icon:"🏠", label:"Home"},
-          {id:"calendar",icon:"📅", label:"Calendar"},
-          {id:"partner", icon:"💌", label:"Partner"},
-          {id:"insights",icon:"✨", label:"Insights"},
+          {id:"home",icon:"🏠",label:"Home"},
+          {id:"calendar",icon:"📅",label:"Calendar"},
+          {id:"partner",icon:"💌",label:"Partner"},
+          {id:"insights",icon:"✨",label:"Insights"},
         ].map(t=>(
           <button key={t.id} onClick={()=>setTab(t.id)} style={{
             flex:1,background:"none",border:"none",cursor:"pointer",
